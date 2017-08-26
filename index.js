@@ -15,9 +15,7 @@ var app = http.createServer(optionServer, function(req, res) {
 	fileServer.serve(req, res);
 }).listen(8080);
 
-var room_general = 'general';
-var docters = [];
-var patients = [];
+var users = [];
 
 var io = socketIO.listen(app);
 io.sockets.on('connection', function(socket) {
@@ -32,104 +30,62 @@ io.sockets.on('connection', function(socket) {
 	function disconnect() {
 		var socket_id = socket.id;
 		
-		// remove patient if exist
-		var patient = get_patient_from_socket_id(socket_id);
-		if (patient !== null)
+		// remove user if exist
+		var user_key = get_user_key_by_socket_id(socket_id);
+		if (user_key !== null)
 		{
 			// send to all clients
-			socket.broadcast.emit('delete_registered_patient', patients[patient.id]);
+			socket.broadcast.emit('delete_registered', users[user_key]);
 			
-			// delete on patients array
-			delete patients[patient.id];
-		}
-		
-		// remove docter if exist
-		var docter = get_docter_from_socket_id(socket_id);
-		if (docter !== null)
-		{
-			// send to all clients
-			socket.broadcast.emit('delete_registered_docter', docters[docter.id]);
-			
-			// delete on docters array
-			delete docters[docter.id];
+			// delete on users array
+			delete users[user_key];
 		}
 	}
 	
-	function get_patient_from_socket_id(socket_id)
-	{
-		// get patient by socket_id
-		for (var patient_id in patients)
+	function get_user_key_by_socket_id(socket_id) {
+		for (var user_key in users)
 		{
-			if (patients[patient_id].socket_id == socket_id)
-				return patients[patient_id];
+			if (users[user_key].socket_id == socket_id)
+				return user_key;
 		}
 		
 		return null;
 	}
 	
-	function get_docter_from_socket_id(socket_id)
-	{
-		// get docter by socket_id
-		for (var docter_id in docters)
-		{
-			if (docters[docter_id].socket_id == socket_id)
-				return docters[docter_id];
-		}
+	// { id : docter_id, type : 1/2 (1=>docter, 2=>patient), name : name, photo : url }
+	socket.on('register', function(data) {
+		// join to general room
+		//socket.join('general');
 		
-		return null;
-	}
-	
-	// { id : docter_id, name : docter_name, photo : url }
-	socket.on('register_docter', function(data) {
-		// joint to general room
-		//socket.join(room_general);
+		var key = data.type + '@' + data.id;
 		
-		// add to docters array
-		docters[data.id] = {
-			id : data.id,
-			socket_id : socket.id,
-			name : data.name,
-			photo : data.photo
+		var user = {
+			key			: key,
+			id			: data.id,
+			socket_id	: socket.id,
+			type		: data.type,
+			name		: data.name,
+			photo		: data.photo
 		};
 		
-		// send to client
-		socket.emit('registered_docter', docters[data.id]);
+		// add to users array
+		users[key] = user;
 		
-		// send to all clients
-		socket.broadcast.emit('new_registered_docter', docters[data.id]);
+		// send to user
+		socket.emit('registered', user);
+		
+		// send to all users
+		socket.broadcast.emit('registered_new', user);
 	});
 	
-	// { id : patient_id, name : patient_name, photo : url }
-	socket.on('register_patient', function(data) {
-		// joint to general room
-		//socket.join(room_general);
+	socket.on('get_registered_all', function() {
+		// remove key from users array using create new user list
+		var user_list = [];
+		for (var user_key in users)
+			user_list.push(users[user_key]);
 		
-		// add to patients array
-		patients[data.id] = {
-			id : data.id,
-			socket_id : socket.id,
-			name : data.name,
-			photo : data.photo
-		};
-		
-		// send to client
-		socket.emit('registered_patient', patients[data.id]);
-		
-		// send to all clients
-		socket.broadcast.emit('new_registered_patient', patients[data.id]);
-	});
-	
-	socket.on('get_registered_docters', function(){
-		socket.emit('registered_docters', docters);
-	});
-	
-	socket.on('get_registered_patients', function(){
-		socket.emit('registered_patients', patients);
-	});
-	
-	socket.on('get_registered_all', function(){
-		socket.emit('registered_docters', docters);
-		socket.emit('registered_patients', patients);
+		// send to user
+		socket.emit('registered_all', user_list);
 	});
 	
 	socket.on('unregister', function(){
@@ -141,23 +97,18 @@ io.sockets.on('connection', function(socket) {
 		disconnect();
 	});
 	
-	// { to : to_id, message : message }
+	// { to : key, message : message }
 	socket.on('message_send', function(data){
 		var socket_id = socket.id;
 		
 		var user_from = null;
-		user_from = get_patient_from_socket_id(socket_id);
-		if (user_from === null)
-			user_from = get_docter_from_socket_id(socket_id);
+		var user_to = users[data.to];
 		
-		// find socket_id by id
-		var user_to = null;
-		if (patients[data.to])
-			user_to = patients[data.to];
-		else if (docters[data.to])
-			user_to = docters[data.to];
+		var user_key_from = get_user_key_by_socket_id(socket_id);
+		if (user_key_from !== null)
+			user_from = users[user_key_from];
 		
-		// send to client
+		// send to user to
 		if (user_to !== null)
 			socket.to(user_to.socket_id).emit('message_receive', {
 				'from'		: user_from,
@@ -166,14 +117,13 @@ io.sockets.on('connection', function(socket) {
 	});
 	
 	
+	
 	socket.on('message', function(message) {
 		log('Client said: ', message);
 		// for a real app, would be room-only (not broadcast)
 		socket.broadcast.emit('message', message);
 	});
 	
-	
-
 	socket.on('create or join', function(room) {
 		log('Received request to create or join room ' + room);
 
