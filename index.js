@@ -8,8 +8,8 @@ const fs = require('fs');
 
 var fileServer = new(nodeStatic.Server)();
 var optionServer = {
-	key: fs.readFileSync('C:\\xampp5624\\apache\\conf\\ssl.key\\server.key'),
-	cert: fs.readFileSync('C:\\xampp5624\\apache\\conf\\ssl.crt\\server.crt')
+	key: fs.readFileSync('/data/certificate/server.key'),
+	cert: fs.readFileSync('/data/certificate/server.crt')
 };
 var app = http.createServer(optionServer, function(req, res) {
 	fileServer.serve(req, res);
