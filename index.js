@@ -8,8 +8,8 @@ const fs = require('fs');
 
 var fileServer = new(nodeStatic.Server)();
 var optionServer = {
-	key: fs.readFileSync('/data/certificate/server.key'),
-	cert: fs.readFileSync('/data/certificate/server.crt')
+	key: fs.readFileSync('/etc/ssl/private/apache-selfsigned.key'),
+	cert: fs.readFileSync('/etc/ssl/certs/apache-selfsigned.crt')
 };
 var app = http.createServer(optionServer, function(req, res) {
 	fileServer.serve(req, res);
