@@ -52,7 +52,7 @@ io.sockets.on('connection', function(socket) {
 		return null;
 	}
 	
-	// { id : docter_id, type : 1/2 (1=>docter, 2=>patient), name : name, photo : url }
+	// { id : docter_id/patient_id, type : 0/1/2 (0=>patient, 1=>general docter, 2=tooth docter), name : name, booth : booth name, photo : url }
 	socket.on('register', function(data) {
 		// join to general room
 		//socket.join('general');
@@ -64,6 +64,7 @@ io.sockets.on('connection', function(socket) {
 			id			: data.id,
 			socket_id	: socket.id,
 			type		: data.type,
+			booth		: data.booth,
 			name		: data.name,
 			photo		: data.photo,
 			oncall		: false
